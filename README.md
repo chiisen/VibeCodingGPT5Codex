@@ -3,6 +3,8 @@ Vibe Coding GPT-5 Codex
 
 # GPT-5-Codex
 
+![codex](./images/codex.png)
+
 ## 安裝
 在 Node.js 20
 ```bash
