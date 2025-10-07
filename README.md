@@ -11,7 +11,7 @@ GPT-5 Codex 最大特點包括能自主長時間（可達7小時以上）連續�
 
 ![codex](./images/codex.png)
 
-## 安裝
+## 安裝與升級
 在 Node.js 20
 ```bash
 npm install -g @openai/codex
