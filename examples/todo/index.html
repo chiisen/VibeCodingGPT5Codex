@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待辦清單</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--page-bg, #f5f5f5);
+      }
+
+      body {
+        margin: 0;
+        padding: 0 1.5rem 2rem;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #7f7fd5, #86a8e7, #91eae4);
+      }
+
+      .app {
+        width: min(500px, 100%);
+        background: rgba(255, 255, 255, 0.92);
+        color: #222;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(8px);
+      }
+
+      h1 {
+        margin: 0 0 1rem;
+        font-size: 1.75rem;
+        letter-spacing: 0.03em;
+        text-align: center;
+      }
+
+      .input-row {
+        display: flex;
+        gap: 0.75rem;
+      }
+
+      .input-row input {
+        flex: 1;
+        padding: 0.65rem 0.9rem;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 10px;
+        font-size: 1rem;
+      }
+
+      .input-row button {
+        padding: 0.65rem 1.15rem;
+        border: none;
+        border-radius: 10px;
+        background: #5865f2;
+        color: #fff;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .input-row button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(88, 101, 242, 0.35);
+      }
+
+      .list {
+        margin-top: 1.5rem;
+        display: grid;
+        gap: 0.75rem;
+        padding: 0;
+        list-style: none;
+      }
+
+      .item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      .item label {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        cursor: pointer;
+      }
+
+      .item.completed label {
+        color: rgba(0, 0, 0, 0.4);
+        text-decoration: line-through;
+      }
+
+      .item button {
+        border: none;
+        background: transparent;
+        color: #cb1b45;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .empty {
+        margin: 2rem 0;
+        text-align: center;
+        color: rgba(0, 0, 0, 0.45);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <h1>待辦清單</h1>
+      <form class="input-row" id="todo-form" autocomplete="off">
+        <input
+          id="todo-input"
+          type="text"
+          name="task"
+          placeholder="新增待辦事項..."
+          required
+        />
+        <button type="submit">新增</button>
+      </form>
+      <ul class="list" id="todo-list"></ul>
+      <p class="empty" id="empty-state">目前還沒有待辦，先來新增一項吧！</p>
+    </main>
+    <script>
+      const listEl = document.querySelector("#todo-list");
+      const formEl = document.querySelector("#todo-form");
+      const inputEl = document.querySelector("#todo-input");
+      const emptyEl = document.querySelector("#empty-state");
+
+      const STORAGE_KEY = "todo-list";
+      let todos = loadTodos();
+
+      render();
+
+      formEl.addEventListener("submit", event => {
+        event.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) {
+          return;
+        }
+        todos.push({
+          id: crypto.randomUUID(),
+          text,
+          done: false,
+          createdAt: Date.now(),
+        });
+        inputEl.value = "";
+        persist();
+        render();
+      });
+
+      listEl.addEventListener("click", event => {
+        const itemEl = event.target.closest(".item");
+        if (!itemEl) {
+          return;
+        }
+        const { id } = itemEl.dataset;
+        if (event.target.matches("input[type='checkbox']")) {
+          toggleTodo(id, event.target.checked);
+        } else if (event.target.matches("button[data-action='remove']")) {
+          removeTodo(id);
+        }
+      });
+
+      function loadTodos() {
+        try {
+          const data = localStorage.getItem(STORAGE_KEY);
+          return data ? JSON.parse(data) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function persist() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+      }
+
+      // Rebuild the list each time to keep rendering logic simple and predictable.
+      function render() {
+        listEl.innerHTML = "";
+        if (!todos.length) {
+          emptyEl.hidden = false;
+          return;
+        }
+        emptyEl.hidden = true;
+        const fragment = document.createDocumentFragment();
+        todos
+          .slice()
+          .sort((a, b) => a.done - b.done || a.createdAt - b.createdAt)
+          .forEach(todo => {
+            const li = document.createElement("li");
+            li.className = `item${todo.done ? " completed" : ""}`;
+            li.dataset.id = todo.id;
+
+            const label = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = todo.done;
+            const span = document.createElement("span");
+            span.textContent = todo.text;
+            label.append(checkbox, span);
+
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.dataset.action = "remove";
+            remove.textContent = "✕";
+
+            li.append(label, remove);
+            fragment.append(li);
+          });
+        listEl.append(fragment);
+      }
+
+      function toggleTodo(id, done) {
+        todos = todos.map(todo =>
+          todo.id === id
+            ? {
+                ...todo,
+                done,
+              }
+            : todo
+        );
+        persist();
+        render();
+      }
+
+      function removeTodo(id) {
+        todos = todos.filter(todo => todo.id !== id);
+        persist();
+        render();
+      }
+    </script>
+  </body>
+</html>
